@@ -1,7 +1,9 @@
-"""
+"""A face detection job
 """
 
 import re
+
+import cv2
 
 from mrjob.job import MRJob
 
@@ -9,8 +11,6 @@ from mrjob.job import MRJob
 #from cluster_iface.configuration import AwsConfiguration
 # AWS_SEC = AwsSecurityContext()
 # AWS_CONF = AwsConfiguration()
-
-# Totally isn't a face_re.  More like a word_re
 FACE_RE = re.compile(r'[\w]+')
 
 class MRFaceTask(MRJob):
@@ -19,6 +19,11 @@ class MRFaceTask(MRJob):
     def mapper(self, _, line):
         """Map out stuff.
         """
+        # Not doing anything with image yet
+        frame = cv2.imread(line, cv2.cv.CV_LOAD_IMAGE_GRAYSCALE)
+        print frame.shape
+
+        # print frame.shape()
         for face in FACE_RE.findall(line):
             # face some stuff.
             yield face.lower(), 1
