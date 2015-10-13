@@ -1,4 +1,4 @@
 *.pyc
 *.pem
+.DS_Store
 rootkey.csv
-

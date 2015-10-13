@@ -1,4 +1,5 @@
 import abc
+import argparse
 import os
 import sys
 
@@ -6,11 +7,9 @@ import cv2
 
 from jobs.face_job import MRFaceTask
 
-face_cascade = cv2.CascadeClassifier('./resources/haarcascades/haarcascade_frontalface_default.xml')
+face_cascade_file = './resources/haarcascades/haarcascade_frontalface_default.xml'
+colorferet_dir = './resources/colorferet'
 
-def exit(message):
-    print 'Exiting:', message
-    sys.exit()
 
 class _VideoProcessor(object):
 
@@ -62,7 +61,8 @@ class FaceProcessorStandalone(_VideoProcessor):
 
         cv2.imshow('face_capture', frame_bgr)
         if cv2.waitKey(10) == 27:
-            exit('User entered esc')
+            print 'Exiting: User entered esc'
+            sys.exit()
 
 
 class SplitProcessor(_VideoProcessor):
@@ -83,8 +83,11 @@ class SplitProcessor(_VideoProcessor):
 
     def _process(self, frame_bgr, frame_num_curr):
         frame_path = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
+        if not os.path.isfile(frame_path):
+            cv2.imwrite(frame_path, frame_bgr)
+        else:
+            print 'skipping', frame_path, 'exists'
         self.frame_paths.append(frame_path)
-        cv2.imwrite(frame_path, frame_bgr)
         
     def _write_list(self, out_dir):
         self.list_path = os.path.join(out_dir, 'list.txt')
@@ -112,19 +115,20 @@ class FaceRunner(object):
         print 'Delegating job'
         arguments = [splitter.list_path, '--output-dir={}'.format(self.out_dir)]
         face_count = MRFaceTask(args=arguments)
+        # TODO: Set cascade file in constructor
+        face_count.init_classifiers(face_cascade_file, colorferet_dir, self.out_dir)
+
         with face_count.make_runner() as runner:
             runner.run()
-
-        print 'Removing split frames'
-        splitter.remove_files()
-
+    
 
 if __name__ == '__main__':
-    video_path = sys.argv[1]
-    out_dir = sys.argv[2]
 
-    # processor = FaceProcessorStandalone(video_path)
-    # processor.run()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('video_file', help='Specify location of video file')
+    parser.add_argument('out_dir', help='Specify file output location')
+    parser.add_argument('--dataset', help='Specify dataset type (Currently supported: colorferet)')
+    args = parser.parse_args()
 
-    face_runner = FaceRunner(video_path, out_dir)
+    face_runner = FaceRunner(args.video_file, args.out_dir)
     face_runner.run()
