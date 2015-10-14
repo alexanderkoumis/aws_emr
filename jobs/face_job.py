@@ -3,47 +3,41 @@
 
 import os
 import re
+import sys
 
 import cv2
 import numpy
 
+from mrjob.compat import jobconf_from_env
 from mrjob.job import MRJob
+
 from cluster_iface.datasets.color_feret import ColorFeret
 
-FACE_RE = re.compile(r'[\w]+')
-face_cascade_file = './resources/haarcascades/haarcascade_frontalface_default.xml'
+
+show_results = False
+write_results = False
+
+
+def display_result(image, race_predicted):
+    cv2.putText(image, race_predicted, (0, 200), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
+    cv2.imshow('Race prediction', image)
+    cv2.waitKey(33)
+
 
 class MRFaceTask(MRJob):
 
-    MRJob.face_cascade = cv2.CascadeClassifier(os.path.abspath(face_cascade_file))
-    # MRJob.recognizer = cv2.createFisherFaceRecognizer()
-    MRJob.recognizer = cv2.createLBPHFaceRecognizer()
-    # MRJob.recognizer = cv2.createEigenFaceRecognizer()
+    def mapper_init(self):
 
-    # Why is this constructor called multiple times (cascade_file only set first time)?
-    # I want to call init_classifiers() in constructor. Also, when I set values in 
-    # init_classifiers(), any values set seem to be destroyed at the time MRJob.run()
-    # is called 
-    #
-    # def __init__(self, cascade_file='', **kwargs):
-    #     super(MRFaceTask, self).__init__(**kwargs)
-    #     self.face_fascade = cv2.CascadeClassifier(cascade_file)
-
-    def init_classifiers(self, cascade_file, colorferet_dir, out_dir):
-
+        cascade_xml = jobconf_from_env('job.settings.cascade_xml')
+        colorferet_dir = jobconf_from_env('job.settings.colorferet_tar')
+        self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
+        self.recognizer = cv2.createLBPHFaceRecognizer()
+        # self.recognizer = cv2.createFisherFaceRecognizer()
+        # self.recognizer = cv2.createEigenFaceRecognizer()
         images, labels = ColorFeret.load_from_small_dataset(colorferet_dir)
-        MRJob.recognizer.train(images, numpy.array(labels))
-        MRJob.out_dir = os.path.abspath(os.path.join(out_dir, 'faces'))
-
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-
-    def mapper(self, _, image_path):
-
-        frame = cv2.imread(image_path, cv2.cv.CV_LOAD_IMAGE_GRAYSCALE)
-        faces = MRJob.face_cascade.detectMultiScale(frame, 2, 8)
-
-        race_predicted = {
+        self.recognizer.train(images, numpy.array(labels))
+        self.face_cascade = cv2.CascadeClassifier(cascade_xml)
+        self.race_predicted = {
             'Black-or-African-American': 0,
             'Asian': 0,
             'Asian-Middle-Eastern': 0,
@@ -53,27 +47,38 @@ class MRFaceTask(MRJob):
             'Pacific-Islander': 0,
             'White': 0
         }
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
+    def mapper(self, _, image_path):
+
+        frame_bgr = cv2.imread(image_path)
+        frame_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(frame_gray, 2, 8)
 
         for (x, y, w, h) in faces:
-            face_cutout = cv2.resize(frame[y:y+h, x:x+w], (256, 256))
-            race_predicted_num, conf = MRJob.recognizer.predict(face_cutout)
-            race_predicted_str = ColorFeret.face_labels_num[int(race_predicted_num)]
-            race_predicted[race_predicted_str] += 1
-            cv2.putText(face_cutout, race_predicted_str, (0, 200), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
-            out_path = os.path.join(MRJob.out_dir, '{}_{}_{}_{}.png'.format(x, y, w, h))
-            cv2.imwrite(out_path, face_cutout)
-            cv2.imshow('lol', face_cutout)
-            cv2.waitKey(33)
 
-        for race in race_predicted:
-            yield race, race_predicted[race]
+            cutout_bgr = cv2.resize(frame_bgr[y:y+h, x:x+w], (256, 256))
+            cutout_gray = cv2.resize(frame_gray[y:y+h, x:x+w], (256, 256))
+            race_predicted_num, conf = self.recognizer.predict(cutout_gray)
+            race_predicted_str = ColorFeret.face_labels_num[int(race_predicted_num)]
+            self.race_predicted[race_predicted_str] += 1
+
+            if show_results:
+                display_result(cutout_bgr, race_predicted_str)
+            if write_results:
+                cv2.imwrite(os.path.join(self.output_dir, '{}_{}_{}_{}.png'.format(x, y, w, h)), cutout_bgr)
+
+        for race in self.race_predicted:
+            yield race, self.race_predicted[race]
+
+    def combinder(self, race, count):
+        yield race, sum(count)
 
     def reducer(self, race, count):
         yield race, sum(count)
 
+
 if __name__ == '__main__':
-    """Do a Face Task
-    """
+
     MRFaceTask.run()
-
-
