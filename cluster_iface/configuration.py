@@ -20,10 +20,19 @@ class AwsConfiguration(Configuration):
     CONFIGURATIONS = {
         'runners': {
             'emr': {
+                'bootstrap': [
+                    'sudo yum -y update && sudo yum -y install cmake',
+                    'wget http://downloads.sourceforge.net/project/opencvlibrary/opencv-unix/3.0.0/opencv-3.0.0.zip',
+                    'unzip opencv-3.0.0.zip && mkdir opencv-3.0.0/build && cd opencv-3.0.0/build',
+                    'cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF ..',
+                    'make && sudo make install',
+                    'echo "export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/" >> ~/.bashrc'
+                ],
                 # 'aws-region': 'us-east-1',
                 ##### Cost Factors #####
                 'num_ec2_instances': 2,
-                'ec2_core_instance_type': 'm1.small',
+                'ec2_master_instance_type': 'm1.medium',
+                'ec2_slave_instance_type': 'm1.medium',
                 'max_hours_idle': 1,
                 'mins_to_end_of_hour': 10,
                 'pool_emr_job_flows': True,
@@ -35,7 +44,9 @@ class AwsConfiguration(Configuration):
 
                 ##### Other #####
                 'label': 'mcmc_konix',
-                'ssh_tunnel_to_job_tracker': True
+                'ssh_tunnel_to_job_tracker': True,
+                'visible_to_all_users': True,
+                'ami_version': '3.10.0'
                 # 'python_archives': None
             },
             'inline': {
