@@ -26,10 +26,17 @@ def display_result(image, race_predicted):
 
 class MRFaceTask(MRJob):
 
+
     def mapper_init(self):
 
-        cascade_xml = jobconf_from_env('job.settings.cascade_xml')
+
         colorferet_dir = jobconf_from_env('job.settings.colorferet_tar')
+        video_path = jobconf_from_env('job.settings.video_mp4')
+        cascade_xml = jobconf_from_env('job.settings.cascade_xml')
+        
+        print 'Splitting video'
+        splitter = SplitProcessor(video_path, os.path.join(self.output_dir, 'video_split'), 'jpg')
+
         self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
         self.recognizer = cv2.createLBPHFaceRecognizer()
         # self.recognizer = cv2.createFisherFaceRecognizer()

@@ -6,14 +6,17 @@ import sys
 import cv2
 
 from jobs.face_job import MRFaceTask
+from cluster_iface.configuration import AwsConfiguration
 from cluster_iface.video_processor import SplitProcessor
 
 
-cascade_xml = 'haarcascade_frontalface_default.xml'
-colorferet_tar = 'colorferet.tar.gz'
-cascade_xml_full = os.path.join('resources', 'haarcascades', cascade_xml)
+cascade_xml         = 'haarcascade_frontalface_default.xml'
+video_mp4           = 'the_intern.mp4'
+colorferet_tar      = 'colorferet.tar.gz'
+video_mp4_full      = os.path.join('input', 'videos', video_mp4)
+cascade_xml_full    = os.path.join('resources', 'haarcascades', cascade_xml)
 colorferet_tar_full = os.path.join('resources', colorferet_tar)
-results_txt = os.path.join('output', 'part-00000')
+results_txt         = os.path.join('output', 'part-00000')
 
 
 class FaceRunner(object):
@@ -25,16 +28,19 @@ class FaceRunner(object):
 
     def run(self):
 
-        print 'Splitting video'
-        splitter = SplitProcessor(self.video_path, os.path.join(self.output_dir, 'video_split'), 'jpg')
+        # print 'Splitting video'
+        # splitter = SplitProcessor(self.video_path, os.path.join(self.output_dir, 'video_split'), 'jpg')
 
         print 'Delegating job'
         face_count = MRFaceTask(args=[
-            splitter.list_path,
+            '-r',
+            'emr',
             '--archive={}'.format(colorferet_tar_full),
+            '--file={}'.format(video_mp4_full),
             '--file={}'.format(cascade_xml_full),
-            '--output-dir={}'.format(os.path.abspath(self.output_dir)),
+            '--output-dir={}'.format(self.output_dir),
             '--jobconf=job.settings.colorferet_tar={}'.format(colorferet_tar),
+            '--jobconf=job.settings.video_mp4={}'.format(video_mp4),
             '--jobconf=job.settings.cascade_xml={}'.format(cascade_xml)
         ])
 
@@ -58,12 +64,15 @@ class FaceRunner(object):
     
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument('video_file', help='Specify location of video file')
-    parser.add_argument('output_dir', help='Specify file output location')
-    args = parser.parse_args()
+    config = AwsConfiguration()
 
-    face_runner = FaceRunner(args.video_file, args.output_dir)
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument('video_file', help='Specify location of video file')
+    # parser.add_argument('output_dir', help='Specify file output location')
+    # args = parser.parse_args()
+
+    # face_runner = FaceRunner(args.video_file, args.output_dir)
+    face_runner = FaceRunner(video_mp4_full, 's3://facedata/out3/1')
     face_runner.run()
 
     # Last results for ./input/videos/the_intern.mp4

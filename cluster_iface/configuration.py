@@ -46,7 +46,7 @@ class AwsConfiguration(Configuration):
                 'label': 'mcmc_konix',
                 'ssh_tunnel_to_job_tracker': True,
                 'visible_to_all_users': True,
-                'ami_version': '3.10.0'
+                'ami_version': '3.10.0',
                 # 'python_archives': None
             },
             'inline': {
