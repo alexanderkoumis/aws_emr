@@ -26,24 +26,19 @@ def display_result(image, race_predicted):
 
 class MRFaceTask(MRJob):
 
-
     def mapper_init(self):
-
-
-        colorferet_dir = jobconf_from_env('job.settings.colorferet_tar')
-        video_path = jobconf_from_env('job.settings.video_mp4')
-        cascade_xml = jobconf_from_env('job.settings.cascade_xml')
         
-        print 'Splitting video'
-        splitter = SplitProcessor(video_path, os.path.join(self.output_dir, 'video_split'), 'jpg')
-
+        self.video_dir = jobconf_from_env('job.settings.video')
+        cascade = jobconf_from_env('job.settings.cascade')
+        colorferet = jobconf_from_env('job.settings.colorferet')
+        
         self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
         self.recognizer = cv2.createLBPHFaceRecognizer()
         # self.recognizer = cv2.createFisherFaceRecognizer()
         # self.recognizer = cv2.createEigenFaceRecognizer()
-        images, labels = ColorFeret.load_from_small_dataset(colorferet_dir)
+        images, labels = ColorFeret.load_from_small_dataset(colorferet)
         self.recognizer.train(images, numpy.array(labels))
-        self.face_cascade = cv2.CascadeClassifier(cascade_xml)
+        self.face_cascade = cv2.CascadeClassifier(cascade)
         self.race_predicted = {
             'Black-or-African-American': 0,
             'Asian': 0,
@@ -54,12 +49,14 @@ class MRFaceTask(MRJob):
             'Pacific-Islander': 0,
             'White': 0
         }
+
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
 
     def mapper(self, _, image_path):
 
-        frame_bgr = cv2.imread(image_path)
+        frame_path = os.path.join(self.video_dir, image_path)
+        frame_bgr = cv2.imread(frame_path)
         frame_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
         faces = self.face_cascade.detectMultiScale(frame_gray, 2, 8)
 

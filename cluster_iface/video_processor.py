@@ -64,33 +64,38 @@ class FaceProcessorStandalone(_VideoProcessor):
 
 class SplitProcessor(_VideoProcessor):
 
-    frame_paths = []
+    frame_paths_full = []
+    frame_paths_relative = []
     list_path = ""
 
     def __init__(self, video_path, out_dir, out_ext):
         super(SplitProcessor, self).__init__(video_path)
         self.out_ext = out_ext
-        out_dir = os.path.abspath(out_dir)
-        out_stem = os.path.splitext(os.path.basename(video_path))[0]
-        self.out_base = os.path.join(out_dir, out_stem)
+        # out_dir = os.path.abspath(out_dir)
+        self.out_stem = os.path.splitext(os.path.basename(video_path))[0]
+        self.out_base = os.path.join(out_dir, self.out_stem)
+
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         self.run()
         self._write_list(out_dir)
 
     def _process(self, frame_bgr, frame_num_curr, frame_num_total):
-        frame_path = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
-        if not os.path.isfile(frame_path):
-            cv2.imwrite(frame_path, frame_bgr)
-            print 'wrote frame :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_path)
+        frame_relative = '{}_{}.{}'.format(self.out_stem, frame_num_curr, self.out_ext)
+        # frame_path = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
+        frame_full = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
+        if not os.path.isfile(frame_full):
+            cv2.imwrite(frame_full, frame_bgr)
+            print 'wrote frame :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
         else:
-            print 'skipping (exists) :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_path)
-        self.frame_paths.append(frame_path)
+            print 'skipping (exists) :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
+        self.frame_paths_full.append(frame_full)
+        self.frame_paths_relative.append(frame_relative)
         
     def _write_list(self, out_dir):
         self.list_path = os.path.join(out_dir, 'list.txt')
         list_file = open(self.list_path, 'w')
-        for frame_path in self.frame_paths:
+        for frame_path in self.frame_paths_relative:
             list_file.write("%s\n" % frame_path)
         list_file.close()
 

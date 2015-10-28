@@ -3,6 +3,7 @@
 """
 
 # Open-Source/Free Imports
+import os
 import subprocess
 import boto3
 
@@ -73,7 +74,12 @@ if __name__ == '__main__':
         try:
             output_path = 's3://facedata/out2/trash{}'.format(sbucket)
             output_arg = '--output-dir={}'.format(output_path)
-            arguments = ['-r', 'emr', 'input/stanford_article.txt', output_arg]
+            arguments = [
+            '-r',
+            'emr',
+            '--file={}'.format(os.path.join('input', 'videos', 'street.mp4')),
+            'input/stanford_article.txt',
+            output_arg]
             word_count = MRWordFreqCount(args=arguments)
             with word_count.make_runner() as runner:
                 runner.run()
