@@ -55,7 +55,7 @@ class FaceRunner(object):
 
         for sbucket in xrange(100):
             try:
-                output_path = 's3://facedata/out2/trash{}'.format(sbucket + 50)
+                output_path = 's3://facedata/out2/trash{}'.format(sbucket + 80)
 
                 print 'Delegating job, output path', output_path
 
@@ -66,6 +66,7 @@ class FaceRunner(object):
                 make_archive(video_split_dir, video_tar_full)                   
 
                 face_count = MRFaceTask(args=[
+                    splitter.list_path,
                     '-v',
                     '-r',
                     'emr',
@@ -75,8 +76,7 @@ class FaceRunner(object):
                     '--output-dir={}'.format(output_path),
                     '--jobconf=job.settings.video={}'.format(video),
                     '--jobconf=job.settings.cascade={}'.format(cascade_xml),
-                    '--jobconf=job.settings.colorferet={}'.format(colorferet),
-                    splitter.list_path
+                    '--jobconf=job.settings.colorferet={}'.format(colorferet)
                 ])
 
 

@@ -21,25 +21,36 @@ class AwsConfiguration(Configuration):
         'runners': {
             'emr': {
                 'bootstrap': [
-                    'sudo pip install youtube-dl',
+                    # 'sudo pip install youtube-dl',
                     # 'mkdir -p /home/hadoop/input && cd /home/hadoop/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
                     # 'mkdir /home/hadoop/input/colorferet && cd /home/hadoop/input/colorferet && wget -O - https://github.com/alexanderkoumis/aws_emr/raw/master/resources/colorferet.tar.gz | tar xvz',
                     # 'cd /home/hadoop/input && wget https://raw.githubusercontent.com/Itseez/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml',
+                    # 'sudo yum -y update && sudo yum -y install cmake',
+                    # 'wget http://downloads.sourceforge.net/project/opencvlibrary/opencv-unix/3.0.0/opencv-3.0.0.zip',
+                    # 'unzip opencv-3.0.0.zip && mkdir opencv-3.0.0/build && cd opencv-3.0.0/build',
+                    # 'cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF ..',
+                    # 'make && sudo make install'
+                    # 'echo "export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/" >> ~/.bashrc'
+                ],
+                'cleanup': [ # keep emr logs on S3 for debugging
+                    'LOCAL_SCRATCH',
+                    'JOB',
+                    'JOB_FLOW'
+                ],
+                'setup': [
                     'sudo yum -y update && sudo yum -y install cmake',
                     'wget http://downloads.sourceforge.net/project/opencvlibrary/opencv-unix/3.0.0/opencv-3.0.0.zip',
                     'unzip opencv-3.0.0.zip && mkdir opencv-3.0.0/build && cd opencv-3.0.0/build',
                     'cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF ..',
                     'make && sudo make install',
-                    'echo "export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/" >> ~/.bashrc'
-                ],
-                # 'setup': [
+                    'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/'
                 #     'mkdir -p ~/input/colorferet && cd ~/input/colorferet && wget -O - https://github.com/alexanderkoumis/aws_emr/raw/master/resources/colorferet.tar.gz | tar xvz',
                 #     'cd ~/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
                 #     'cd ~/input && wget https://raw.githubusercontent.com/Itseez/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml'
-                # ],
+                ],
                 # 'aws-region': 'us-east-1',
                 ##### Cost Factors #####
-                'num_ec2_instances': 1,
+                'num_ec2_instances': 2,
                 'ec2_master_instance_type': 'm1.medium',
                 'ec2_slave_instance_type': 'm1.medium',
                 'max_hours_idle': 1,
@@ -55,7 +66,7 @@ class AwsConfiguration(Configuration):
                 'label': 'mcmc_konix',
                 'ssh_tunnel_to_job_tracker': True,
                 'visible_to_all_users': True,
-                'ami_version': '3.10.0',
+                'ami_version': '3.10.0'
                 # 'python_archives': None
             },
             'inline': {
