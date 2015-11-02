@@ -2,16 +2,15 @@
 """
 import re
 import cv2
-import numpy
+# import numpy
 
 from mrjob.job import MRJob
 from mrjob.step import MRStep
 from mrjob.compat import jobconf_from_env
 
-#from cluster_iface.security_context import AwsSecurityContext
-#from cluster_iface.configuration import AwsConfiguration
+# from cluster_iface.security_context import AwsSecurityContext
+# from cluster_iface.configuration import AwsConfiguration
 # from cluster_iface.datasets.color_feret import ColorFeret
-
 
 WORD_RE = re.compile(r'[\w]+')
 # AWS_SEC = AwsSecurityContext()
@@ -59,7 +58,7 @@ class MRWordFreqCount(MRJob):
         # colorferet = jobconf_from_env('job.settings.colorferet')
         
         # self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
-        # self.recognizer = cv2.createLBPHFaceRecognizer()
+        self.recognizer = cv2.createLBPHFaceRecognizer()
         # self.recognizer = cv2.createFisherFaceRecognizer()
         # self.recognizer = cv2.createEigenFaceRecognizer()
         # images, labels = ColorFeret.load_from_small_dataset(colorferet)

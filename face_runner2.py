@@ -5,6 +5,7 @@
 # Open-Source/Free Imports
 import datetime
 import os
+import sys
 import subprocess
 import tarfile
 
@@ -99,10 +100,9 @@ if __name__ == '__main__':
     max_wlen = 8
     items = []
 
-    splitter = SplitProcessor(video_full, video_split_dir, 'jpg')
-    splitter.run()
-    make_archive(video_split_dir, video_tar_full)
-
+    # splitter = SplitProcessor(video_full, video_split_dir, 'jpg')
+    # splitter.run()
+    # make_archive(video_split_dir, video_tar_full)
 
     for sbucket in xrange(100):
         # Find an s3 output that doesn't already exist.
@@ -110,19 +110,22 @@ if __name__ == '__main__':
             output_path = 's3://facedata/out2/trash{}'.format(sbucket)
             output_arg = '--output-dir={}'.format(output_path)
             arguments = [
-            '-v',
+            '--verbose',
             '-r',
             'emr',
             '--file={}'.format(cascade_full),
-            '--archive={}'.format(colorferet_full),
-            '--archive={}'.format(video_tar_full),
-            '--jobconf=job.settings.video={}'.format(video),
-            '--jobconf=job.settings.cascade={}'.format(cascade_xml),
-            '--jobconf=job.settings.colorferet={}'.format(colorferet),
+            '--archive=s3://facedata/colorferet.tar.gz',
+            '--archive=s3://facedata/street.tar.gz',
+            # '--archive={}'.format(colorferet_full),
+            # '--archive={}'.format(video_tar_full),
+            # '--jobconf=job.settings.video={}'.format(video),
+            # '--jobconf=job.settings.cascade={}'.format(cascade_xml),
+            # '--jobconf=job.settings.colorferet={}'.format(colorferet),
             'input/stanford_article.txt',
             output_arg]
             word_count = MRWordFreqCount(args=arguments)
             #word_count = MRWordFreqCount(args=arguments)
+            word_count.set_up_logging(verbose=True, stream=sys.stdout)
             with word_count.make_runner() as runner:
                 runner.run()
                 for line in runner.stream_output():

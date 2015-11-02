@@ -16,37 +16,21 @@ class AwsConfiguration(Configuration):
     """
     AWS_SEC = AwsSecurityContext()
     CONFIG_FILE = '.mrjob.conf'
-    PEM_KEYS = '.ssh/key_pair.pem'
+    PEM_KEYS = '.ssh/key_pair2.pem'
     CONFIGURATIONS = {
         'runners': {
             'emr': {
                 'bootstrap': [
+                    'sudo yum -y update && sudo yum -y install cmake'
                     # 'sudo pip install youtube-dl',
                     # 'mkdir -p /home/hadoop/input && cd /home/hadoop/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
-                    # 'mkdir /home/hadoop/input/colorferet && cd /home/hadoop/input/colorferet && wget -O - https://github.com/alexanderkoumis/aws_emr/raw/master/resources/colorferet.tar.gz | tar xvz',
-                    # 'cd /home/hadoop/input && wget https://raw.githubusercontent.com/Itseez/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml',
-                    # 'sudo yum -y update && sudo yum -y install cmake',
-                    # 'wget http://downloads.sourceforge.net/project/opencvlibrary/opencv-unix/3.0.0/opencv-3.0.0.zip',
-                    # 'unzip opencv-3.0.0.zip && mkdir opencv-3.0.0/build && cd opencv-3.0.0/build',
-                    # 'cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF ..',
-                    # 'make && sudo make install'
-                    # 'echo "export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/" >> ~/.bashrc'
-                ],
-                'cleanup': [ # keep emr logs on S3 for debugging
-                    'LOCAL_SCRATCH',
-                    'JOB',
-                    'JOB_FLOW'
                 ],
                 'setup': [
-                    'sudo yum -y update && sudo yum -y install cmake',
-                    'wget http://downloads.sourceforge.net/project/opencvlibrary/opencv-unix/3.0.0/opencv-3.0.0.zip',
-                    'unzip opencv-3.0.0.zip && mkdir opencv-3.0.0/build && cd opencv-3.0.0/build',
-                    'cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF ..',
-                    'make && sudo make install',
-                    'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/'
-                #     'mkdir -p ~/input/colorferet && cd ~/input/colorferet && wget -O - https://github.com/alexanderkoumis/aws_emr/raw/master/resources/colorferet.tar.gz | tar xvz',
-                #     'cd ~/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
-                #     'cd ~/input && wget https://raw.githubusercontent.com/Itseez/opencv/master/data/haarcascades/haarcascade_frontalface_default.xml'
+                    'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local',
+                    'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.6/dist-packages/'
+                ],
+                'cleanup': [ # keep emr logs on S3 for debugging
+                    'NONE'
                 ],
                 # 'aws-region': 'us-east-1',
                 ##### Cost Factors #####
@@ -59,14 +43,17 @@ class AwsConfiguration(Configuration):
                 # 'pool_name': '',
 
                 ##### Security Factors #####
-                'ec2_key_pair': 'key_pair',
+                'ec2_key_pair': 'key_pair2',
                 'ec2_key_pair_file': os.path.join(AWS_SEC.HOME, PEM_KEYS),
 
                 ##### Other #####
                 'label': 'mcmc_konix',
+                'ssh_tunnel': True,
+                'ssh_tunnel_is_open': True,
                 'ssh_tunnel_to_job_tracker': True,
                 'visible_to_all_users': True,
-                'ami_version': '3.10.0'
+                'ami_version': '3.10.0',
+                'emr_action_on_failure': 'CONTINUE'
                 # 'python_archives': None
             },
             'inline': {
