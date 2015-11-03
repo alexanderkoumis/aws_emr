@@ -21,18 +21,17 @@ class AwsConfiguration(Configuration):
         'runners': {
             'emr': {
                 'bootstrap': [
-                    'sudo yum -y update && sudo yum -y install cmake'
+                    'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local'
                     # 'sudo pip install youtube-dl',
                     # 'mkdir -p /home/hadoop/input && cd /home/hadoop/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
                 ],
                 'setup': [
-                    'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local',
                     'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.6/dist-packages/'
                 ],
-                'cleanup': [ # keep emr logs on S3 for debugging
+                'cleanup': [
                     'NONE'
                 ],
-                # 'aws-region': 'us-east-1',
+
                 ##### Cost Factors #####
                 'num_ec2_instances': 2,
                 'ec2_master_instance_type': 'm1.medium',
@@ -40,7 +39,7 @@ class AwsConfiguration(Configuration):
                 'max_hours_idle': 1,
                 'mins_to_end_of_hour': 10,
                 'pool_emr_job_flows': True,
-                # 'pool_name': '',
+                'check_emr_status_every': 5,
 
                 ##### Security Factors #####
                 'ec2_key_pair': 'key_pair2',

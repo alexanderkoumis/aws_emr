@@ -1,37 +1,41 @@
-import abc
-import argparse
+#!/usr/bin/python
+"""Face detection cluster job runner.
+"""
+
+import datetime
 import os
 import sys
+import subprocess
 import tarfile
+import boto3
 
-import cv2
+from boto.s3.key import Key
+from boto.emr.step import StreamingStep
+from boto.emr.instance_group import InstanceGroup
+from mrjob.job import MRJob
 
-from jobs.face_job import MRFaceTask
+from cluster_iface.connection import AwsConnection
 from cluster_iface.configuration import AwsConfiguration
 from cluster_iface.video_processor import SplitProcessor
-
-# Input
-
+from jobs.face_job import MRFaceTask
 
 cascade         = 'haarcascade_frontalface_default'
-colorferet      = 'colorferet'
 video           = 'street'
 
 cascade_xml     = '{}.xml'.format(cascade)
-colorferet_tar  = '{}.tar.gz'.format(colorferet)
 video_mp4       = '{}.mp4'.format(video)
 video_tar       = '{}.tar.gz'.format(video)
 
 video_dir       = os.path.join('input', 'videos')
 video_split_dir = os.path.join(video_dir, 'split')
+video_split_txt = os.path.join(video_split_dir, 'list.txt')
 
-colorferet_full = os.path.join('resources', colorferet_tar)
 cascade_full    = os.path.join('resources', cascade_xml)
 video_full      = os.path.join(video_dir, video_mp4)
 video_tar_full  = os.path.abspath(os.path.join(video_dir, video_tar))
 
-# Output
-# results_txt    = os.path.join(output_dir, 'part-00000')
+# local_or_emr    = 'local'
+local_or_emr    = 'emr'
 
 def make_archive(dir, out):
     cwd = os.getcwd()
@@ -42,86 +46,74 @@ def make_archive(dir, out):
             tar.add(frame_path)    
     os.chdir(cwd)
 
-class FaceRunner(object):
-
-    def run(self):
-
-        config = AwsConfiguration()
-        items = []
-        max_wlen = 8
-
-        # print 'Splitting video'
-        # splitter = SplitProcessor(self.video_path, os.path.join(self.output_dir, 'video_split'), 'jpg')
-
-        for sbucket in xrange(100):
-            try:
-                output_path = 's3://facedata/out2/trash{}'.format(sbucket + 80)
-
-                print 'Delegating job, output path', output_path
-
-                splitter = SplitProcessor(video_full, video_split_dir, 'jpg')                
-
-                splitter.run()
-
-                make_archive(video_split_dir, video_tar_full)                   
-
-                face_count = MRFaceTask(args=[
-                    splitter.list_path,
-                    '-v',
-                    '-r',
-                    'emr',
-                    '--file={}'.format(cascade_full),
-                    '--archive={}'.format(colorferet_full),
-                    '--archive={}'.format(video_tar_full),
-                    '--output-dir={}'.format(output_path),
-                    '--jobconf=job.settings.video={}'.format(video),
-                    '--jobconf=job.settings.cascade={}'.format(cascade_xml),
-                    '--jobconf=job.settings.colorferet={}'.format(colorferet)
-                ])
-
-
-                with face_count.make_runner() as runner:
-                    runner.run()
-
-                # for line in open(results_txt):
-                #     item = line.rstrip('\n').split('\t')
-                #     max_wlen = max(max_wlen, len(item[0]))
-                #     items.append(item)
-            except IOError, excp:
-                if 'Output path' in excp.message and 'already exists' in excp.message:
-                    # This bucket already exists, try another one.
-                    continue
-                # We don't know what this exception is, re-raise it.
-                raise           
-
-        pad = '{:' + '{}'.format(max_wlen) + '}'
-        fmat = '{}:\t{}'.format(pad, '{}')
-        print fmat.format('--RACE--', '--COUNT--')
-        for item in items:
-            print '{}'.format(fmat.format(item[0], item[1]))
-
-    
 if __name__ == '__main__':
+    config = AwsConfiguration()
+    max_wlen = 8
+    items = []
 
+    out_path = ''
 
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('video_file', help='Specify location of video file')
-    # parser.add_argument('output_dir', help='Specify file output location')
-    # args = parser.parse_args()
+    # splitter = SplitProcessor(video_full, video_split_dir, 'jpg')
+    # splitter.run()
+    # make_archive(video_split_dir, video_tar_full)
 
-    # face_runner = FaceRunner(args.video_file, args.output_dir)
-    face_runner = FaceRunner()
-    face_runner.run()
+    for sbucket in xrange(100):
+        # Find an s3 output that doesn't already exist.
+        try:
+            arguments = [
+                '--verbose',
+                '--file={}'.format(cascade_full),
+                '--jobconf=job.settings.video_dir=video_dir',
+                '--jobconf=job.settings.cascade={}'.format(cascade_xml),
+                '--jobconf=job.settings.colorferet=colorferet',
+                video_split_txt
+            ]
+            if local_or_emr == 'local':
+                out_path = os.path.join('output', 'result_{}'.format(sbucket))
+                if os.path.isdir(out_path):
+                    continue
+                arguments.extend([
+                    '-rlocal',
+                    '--archive=resources/colorferet.tar.gz#colorferet',
+                    '--archive=input/videos/street.tar.gz#video_dir',
+                    '--output-dir={}'.format(out_path)
+                ])
+            elif local_or_emr == 'emr':
+                out_path = 's3://facedata/out2/trash_{}'.format(sbucket)
+                arguments.extend([
+                    '-remr',
+                    '--archive=s3://facedata/colorferet.tar.gz#colorferet',
+                    '--archive=s3://facedata/street.tar.gz#video_dir',
+                    '--output-dir={}'.format(out_path)
+                ])
+            else:
+                print 'Unrecognized run type:', local_or_emr
+                sys.exit(1)
+            word_count = MRFaceTask(args=arguments)
+            word_count.set_up_logging(verbose=True, stream=sys.stdout)
+            with word_count.make_runner() as runner:
+                runner.run()
+                for line in runner.stream_output():
+                    key, value = word_count.parse_output_line(line)
+                    klen = len(key)
+                    if klen > max_wlen:
+                        max_wlen = klen
+                    items.append((key, value))
+            break
+        except IOError, excp:
+            if 'Output path' in excp.message and 'already exists' in excp.message:
+                # This bucket already exists, try another one.
+                continue
+            # We don't know what this exception is, re-raise it.
+            raise
+    #########################
+    # Lets give a nice output.
+    # making a table: fmat = '{:int(len_longest_word)}:\t{}'
+    pad = '{:' + '{}'.format(max_wlen) + '}'
+    fmat = '{}:\t{}'.format(pad, '{}')
 
-    # Last results for ./input/videos/the_intern.mp4
-    # Not looking very diverse...
-    #
-    # --RACE--                   :    --COUNT--
-    # "Asian"                    :    196461
-    # "Asian-Middle-Eastern"     :    0
-    # "Black-or-African-American":    36873
-    # "Hispanic"                 :    65288
-    # "Native-American"          :    0
-    # "Other"                    :    0
-    # "Pacific-Islander"         :    0
-    # "White"                    :    680119
+    print 'Output In: {}'.format(out_path)
+    print fmat.format('--WORD--', '--COUNT--')
+    for key, value in items:
+        print '  {}'.format(fmat.format(key, value))
+

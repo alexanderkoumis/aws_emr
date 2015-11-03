@@ -71,7 +71,6 @@ class SplitProcessor(_VideoProcessor):
     def __init__(self, video_path, out_dir, out_ext):
         super(SplitProcessor, self).__init__(video_path)
         self.out_ext = out_ext
-        # out_dir = os.path.abspath(out_dir)
         self.out_stem = os.path.splitext(os.path.basename(video_path))[0]
         self.out_base = os.path.join(out_dir, self.out_stem)
 
@@ -82,7 +81,6 @@ class SplitProcessor(_VideoProcessor):
 
     def _process(self, frame_bgr, frame_num_curr, frame_num_total):
         frame_relative = '{}_{}.{}'.format(self.out_stem, frame_num_curr, self.out_ext)
-        # frame_path = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
         frame_full = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
         if not os.path.isfile(frame_full):
             cv2.imwrite(frame_full, frame_bgr)

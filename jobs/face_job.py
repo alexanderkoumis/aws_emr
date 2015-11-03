@@ -1,86 +1,114 @@
-"""A face detection job
+"""A mrjob mapreduce wordcount example using EMR HDFS.
 """
 
+import logging
 import os
 import re
 import sys
-
 import cv2
 import numpy
 
-from mrjob.compat import jobconf_from_env
 from mrjob.job import MRJob
+from mrjob.step import MRStep
+from mrjob.compat import jobconf_from_env
 
-from cluster_iface.datasets.color_feret import ColorFeret
-
-
-show_results = False
-write_results = False
-
-
-def display_result(image, race_predicted):
-    cv2.putText(image, race_predicted, (0, 200), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
-    cv2.imshow('Race prediction', image)
-    cv2.waitKey(33)
+# from cluster_iface.datasets.color_feret import ColorFeret
 
 
 class MRFaceTask(MRJob):
+    """A HDFS face/race detection interface.
+    """
 
-    # def mapper_init(self):
-        
-        # self.video_dir = jobconf_from_env('job.settings.video')
-        # cascade = jobconf_from_env('job.settings.cascade')
-        # colorferet = jobconf_from_env('job.settings.colorferet')
-        
-        # self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
-        # self.recognizer = cv2.createLBPHFaceRecognizer()
-        # # self.recognizer = cv2.createFisherFaceRecognizer()
-        # # self.recognizer = cv2.createEigenFaceRecognizer()
-        # images, labels = ColorFeret.load_from_small_dataset(colorferet)
-        # self.recognizer.train(images, numpy.array(labels))
-        # self.face_cascade = cv2.CascadeClassifier(cascade)
-        # self.race_predicted = {
-        #     'Black-or-African-American': 0,
-        #     'Asian': 0,
-        #     'Asian-Middle-Eastern': 0,
-        #     'Hispanic': 0,
-        #     'Native-American': 0,
-        #     'Other': 0,
-        #     'Pacific-Islander': 0,
-        #     'White': 0
-        # }
+    def mapper_init(self):
 
-        # if not os.path.exists(self.output_dir):
-        #     os.makedirs(self.output_dir)
+        def load_from_small_dataset(colorferet_small_dir):
 
-    def mapper(self, _, image_path):
+            face_labels_str = {
+                'Black-or-African-American': 0,
+                'Asian': 1,
+                'Asian-Middle-Eastern': 2,
+                'Hispanic': 3,
+                'Native-American': 4,
+                'Other': 5,
+                'Pacific-Islander': 6,
+                'White': 7
+            }
 
-        yield 'Asian', 1
+            images = []
+            labels = []
 
-        print 'hi'
-        
-        # frame_path = os.path.join(self.video_dir, image_path)
-        # frame_bgr = cv2.imread(frame_path)
-        # frame_gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
-        # faces = self.face_cascade.detectMultiScale(frame_gray, 2, 8)
+            for face_label_str in face_labels_str:
+                face_label_num = face_labels_str[face_label_str]
+                image_dir = os.path.join(colorferet_small_dir, face_label_str)
+                image_files = [os.path.join(image_dir, image_file) for image_file in os.listdir(image_dir)]
+                images_tmp = [cv2.resize(cv2.imread(image_file, 0), (256, 256)) for image_file in image_files if image_file.split('.')[-1] == 'png']
+                labels_tmp = [face_label_num] * len(images_tmp)
+                images.extend(images_tmp)
+                labels.extend(labels_tmp)
 
-        # for (x, y, w, h) in faces:
+            return images, labels
 
-        #     cutout_bgr = cv2.resize(frame_bgr[y:y+h, x:x+w], (256, 256))
-        #     cutout_gray = cv2.resize(frame_gray[y:y+h, x:x+w], (256, 256))
-        #     race_predicted_num, conf = self.recognizer.predict(cutout_gray)
-        #     race_predicted_str = ColorFeret.face_labels_num[int(race_predicted_num)]
-        #     self.race_predicted[race_predicted_str] += 1
+        self.video_dir = jobconf_from_env('job.settings.video_dir')
+        self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
+        self.face_cascade = cv2.CascadeClassifier(jobconf_from_env('job.settings.cascade'))
+        self.recognizer = cv2.createLBPHFaceRecognizer()
+        # self.recognizer = cv2.createFisherFaceRecognizer()
+        # self.recognizer = cv2.createEigenFaceRecognizer()
 
-        #     if show_results:
-        #         display_result(cutout_bgr, race_predicted_str)
-        #     if write_results:
-        #         cv2.imwrite(os.path.join(self.output_dir, '{}_{}_{}_{}.png'.format(x, y, w, h)), cutout_bgr)
+        images, labels = load_from_small_dataset(jobconf_from_env('job.settings.colorferet'))
 
-        # for race in self.race_predicted:
-        #     yield race, self.race_predicted[race]
+        self.recognizer.train(images, numpy.array(labels))
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
 
-    def combinder(self, race, count):
+        self.race_predicted = {
+            'Black-or-African-American': 0,
+            'Asian': 0,
+            'Asian-Middle-Eastern': 0,
+            'Hispanic': 0,
+            'Native-American': 0,
+            'Other': 0,
+            'Pacific-Islander': 0,
+            'White': 0
+        }
+
+        self.face_labels_num = {
+            0: 'Black-or-African-American',
+            1: 'Asian',
+            2: 'Asian-Middle-Eastern',
+            3: 'Hispanic',
+            4: 'Native-American',
+            5: 'Other',
+            6: 'Pacific-Islander',
+            7: 'White'
+        }
+
+        self.write_results = False
+
+    def mapper(self, _, line):
+        frame_path = os.path.join(self.video_dir, line)
+        # sys.stderr.write('frame path: {0}'.format(frame_path))
+        frame = cv2.imread(frame_path)
+        frame_bgr = None
+        if len(frame.shape) == 3:
+            if frame.shape[2] > 1:
+                frame_bgr = frame
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_cascade.detectMultiScale(frame, 2, 8)
+        for (x, y, w, h) in faces:
+            cutout = cv2.resize(frame[y:y+h, x:x+w], (256, 256))
+            race_predicted_num, conf = self.recognizer.predict(cutout)
+            race_predicted_str = self.face_labels_num[int(race_predicted_num)]
+            self.race_predicted[race_predicted_str] += 1
+            if self.write_results:
+                if frame_bgr:
+                    cutout = cv2.resize(frame_bgr[y:y+h, x:x+w], (256, 256))
+                cv2.putText(cutout, race_predicted_str, (0, 200), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
+                cv2.imwrite(os.path.join(self.output_dir, '{0}_{1}_{2}_{3}.jpg'.format(x, y, w, h)), cutout)
+        for race in self.race_predicted:
+            yield race, self.race_predicted[race]
+
+    def combiner(self, race, count):
         yield race, sum(count)
 
     def reducer(self, race, count):
@@ -88,5 +116,5 @@ class MRFaceTask(MRJob):
 
 
 if __name__ == '__main__':
-
     MRFaceTask.run()
+
