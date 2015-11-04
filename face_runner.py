@@ -66,6 +66,8 @@ if __name__ == '__main__':
                 '--jobconf=job.settings.video_dir=video_dir',
                 '--jobconf=job.settings.cascade={}'.format(cascade_xml),
                 '--jobconf=job.settings.colorferet=colorferet',
+                '--archive=resources/colorferet.tar.gz#colorferet',
+                '--archive=input/videos/street.tar.gz#video_dir',
                 video_split_txt
             ]
             if local_or_emr == 'local':
@@ -74,16 +76,12 @@ if __name__ == '__main__':
                     continue
                 arguments.extend([
                     '-rlocal',
-                    '--archive=resources/colorferet.tar.gz#colorferet',
-                    '--archive=input/videos/street.tar.gz#video_dir',
                     '--output-dir={}'.format(out_path)
                 ])
             elif local_or_emr == 'emr':
                 out_path = 's3://facedata/out2/trash_{}'.format(sbucket)
                 arguments.extend([
                     '-remr',
-                    '--archive=s3://facedata/colorferet.tar.gz#colorferet',
-                    '--archive=s3://facedata/street.tar.gz#video_dir',
                     '--output-dir={}'.format(out_path)
                 ])
             else:
