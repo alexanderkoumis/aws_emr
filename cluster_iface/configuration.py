@@ -22,8 +22,6 @@ class AwsConfiguration(Configuration):
             'emr': {
                 'bootstrap': [
                     'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local'
-                    # 'sudo pip install youtube-dl',
-                    # 'mkdir -p /home/hadoop/input && cd /home/hadoop/input && youtube-dl https://www.youtube.com/watch?v=HUzPwIP9BqE -o video.mp4',
                 ],
                 'setup': [
                     'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.6/dist-packages/'

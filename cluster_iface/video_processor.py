@@ -10,6 +10,7 @@ colorferet_dir = './resources/colorferet'
 class _VideoProcessor(object):
 
     __metaclass__ = abc.ABCMeta
+    kill = False
 
     def __init__(self, video_path):
         self.video_path = video_path
@@ -34,7 +35,7 @@ class _VideoProcessor(object):
             if flag:
                 frame_num_curr = int(cap.get(cv2.cv.CV_CAP_PROP_POS_FRAMES))
                 self._process(frame_bgr, frame_num_curr, frame_num_total)
-                if frame_num_curr == frame_num_total:
+                if frame_num_curr == frame_num_total or self.kill:
                     break
             else:
                 print 'Error reading frame'
@@ -67,6 +68,7 @@ class SplitProcessor(_VideoProcessor):
     frame_paths_full = []
     frame_paths_relative = []
     list_path = ""
+    verbose = False
 
     def __init__(self, video_path, out_dir, out_ext):
         super(SplitProcessor, self).__init__(video_path)
@@ -84,9 +86,17 @@ class SplitProcessor(_VideoProcessor):
         frame_full = '{}_{}.{}'.format(self.out_base, frame_num_curr, self.out_ext)
         if not os.path.isfile(frame_full):
             cv2.imwrite(frame_full, frame_bgr)
-            print 'wrote frame :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
+            if self.verbose:
+                print 'wrote frame :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
         else:
-            print 'skipping (exists) :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
+            frame_last_relative = '{}_{}.{}'.format(self.out_stem, frame_num_total, self.out_ext)
+            frame_last_full = '{}_{}.{}'.format(self.out_base, frame_num_total, self.out_ext)
+            if os.path.isfile(frame_last_full):
+                self.kill = True
+                print 'All frames already processed'
+            else:
+                if self.verbose:
+                    print 'skipping (exists) :: {}/{} :: {}'.format(frame_num_curr, frame_num_total, frame_full)
         self.frame_paths_full.append(frame_full)
         self.frame_paths_relative.append(frame_relative)
         
