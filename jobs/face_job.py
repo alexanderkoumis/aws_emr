@@ -5,8 +5,11 @@ import logging
 import os
 import re
 import sys
+
 import cv2
 import numpy
+
+import cv2gpu
 
 from mrjob.job import MRJob
 from mrjob.step import MRStep
@@ -50,27 +53,22 @@ class MRFaceTask(MRJob):
 
         self.video_dir = jobconf_from_env('job.settings.video_dir')
         self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
-        self.face_cascade = cv2.CascadeClassifier(jobconf_from_env('job.settings.cascade'))
         self.recognizer = cv2.createLBPHFaceRecognizer()
         # self.recognizer = cv2.createFisherFaceRecognizer()
         # self.recognizer = cv2.createEigenFaceRecognizer()
+
+        if cv2gpu.is_cuda_compatible():
+            sys.stderr.write('Using GPU CascadeClassifier')
+            cv2gpu.init_gpu_detector(jobconf_from_env('job.settings.cascade_gpu'))
+        else:
+            sys.stderr.write('Using CPU CascadeClassifier')
+            cv2gpu.init_cpu_detector(jobconf_from_env('job.settings.cascade_cpu'))
 
         images, labels = load_from_small_dataset(jobconf_from_env('job.settings.colorferet'))
 
         self.recognizer.train(images, numpy.array(labels))
         if not os.path.exists(self.output_dir):
             os.makedirs(self.output_dir)
-
-        self.race_predicted = {
-            'Black-or-African-American': 0,
-            'Asian': 0,
-            'Asian-Middle-Eastern': 0,
-            'Hispanic': 0,
-            'Native-American': 0,
-            'Other': 0,
-            'Pacific-Islander': 0,
-            'White': 0
-        }
 
         self.face_labels_num = {
             0: 'Black-or-African-American',
@@ -86,6 +84,18 @@ class MRFaceTask(MRJob):
         self.write_results = False
 
     def mapper(self, _, line):
+
+        race_predicted = {
+            'Black-or-African-American': 0,
+            'Asian': 0,
+            'Asian-Middle-Eastern': 0,
+            'Hispanic': 0,
+            'Native-American': 0,
+            'Other': 0,
+            'Pacific-Islander': 0,
+            'White': 0
+        }
+
         frame_path = os.path.join(self.video_dir, line)
         # sys.stderr.write('frame path: {0}'.format(frame_path))
         frame = cv2.imread(frame_path)
@@ -94,19 +104,18 @@ class MRFaceTask(MRJob):
             if frame.shape[2] > 1:
                 frame_bgr = frame
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self.face_cascade.detectMultiScale(frame, 2, 8)
-        for (x, y, w, h) in faces:
+        for (x, y, w, h) in cv2gpu.find_faces(frame_path):
             cutout = cv2.resize(frame[y:y+h, x:x+w], (256, 256))
             race_predicted_num, conf = self.recognizer.predict(cutout)
             race_predicted_str = self.face_labels_num[int(race_predicted_num)]
-            self.race_predicted[race_predicted_str] += 1
+            race_predicted[race_predicted_str] += 1
             if self.write_results:
                 if frame_bgr:
                     cutout = cv2.resize(frame_bgr[y:y+h, x:x+w], (256, 256))
                 cv2.putText(cutout, race_predicted_str, (0, 200), cv2.FONT_HERSHEY_SIMPLEX, .7, (255, 255, 255), 1)
                 cv2.imwrite(os.path.join(self.output_dir, '{0}_{1}_{2}_{3}.jpg'.format(x, y, w, h)), cutout)
-        for race in self.race_predicted:
-            yield race, self.race_predicted[race]
+        for race in race_predicted:
+            yield race, race_predicted[race]
 
     def combiner(self, race, count):
         yield race, sum(count)

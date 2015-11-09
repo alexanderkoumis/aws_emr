@@ -21,10 +21,12 @@ class AwsConfiguration(Configuration):
         'runners': {
             'emr': {
                 'bootstrap': [
-                    'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local'
+                    'wget http://facedata.s3.amazonaws.com/OpenCV-unknown-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-unknown-x86_64.tar.gz -C /usr/local',
+                    'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig && wget http://facedata.s3.amazonaws.com/opencv-gpu-py.tar.gz && sudo -E pip install ./opencv-gpu-py.tar.gz'
                 ],
                 'setup': [
-                    'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.6/dist-packages/'
+                    'export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.6/dist-packages/:/usr/local/lib64/python2.6/site-packages',
+                    'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib'
                 ],
                 'cleanup': [
                     'NONE'
@@ -37,7 +39,6 @@ class AwsConfiguration(Configuration):
                 'max_hours_idle': 1,
                 'mins_to_end_of_hour': 10,
                 'pool_emr_job_flows': True,
-                'check_emr_status_every': 5,
 
                 ##### Security Factors #####
                 'ec2_key_pair': 'key_pair2',
@@ -50,6 +51,8 @@ class AwsConfiguration(Configuration):
                 'ssh_tunnel_to_job_tracker': True,
                 'visible_to_all_users': True,
                 'ami_version': '3.10.0',
+                'check_emr_status_every': 5,
+                'enable_emr_debugging': True,
                 'emr_action_on_failure': 'CONTINUE'
                 # 'python_archives': None
             },

@@ -35,14 +35,15 @@ def make_archive(files, out):
             tar.add(file, arcname=os.path.basename(file))
 
 def get_youtube_filename(youtube_url):
+    filename = ''
     try:
-        return subprocess.check_output(['youtube-dl', '--get-filename', youtube_url]).rstrip().replace(' ', '').replace('&', '')
+        filename = subprocess.check_output(['youtube-dl', '--get-filename', youtube_url]).rstrip().replace(' ', '')
     except OSError as e:
         if e.errno == os.errno.ENOENT:
             sys.exit('youtube-dl not found, install with: pip install youtube-dl')
         else:
             raise
-
+    return ''.join(c for c in filename if c.isalnum() or c == '.')
 
 if __name__ == '__main__':
 
@@ -52,10 +53,15 @@ if __name__ == '__main__':
     out_path = None
     results = []
 
+    out_dir = 'output'
+    out_subdir = 'result'
+
     video_tar_full = None
     video_txt_full = None
-    cascade_xml = 'haarcascade_frontalface_default.xml'
-    cascade_full = os.path.join('resources', cascade_xml)
+    cascade_cpu = 'haarcascade_frontalface_default.xml'
+    cascade_gpu = 'haarcascade_frontalface_default_cuda.xml'
+    cascade_cpu_full = os.path.join('resources', cascade_cpu)
+    cascade_gpu_full = os.path.join('resources', cascade_gpu)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--run', help='Run type (same as MRJob) (defaults to local)')
@@ -74,7 +80,7 @@ if __name__ == '__main__':
         video_tar_full = os.path.join('input', 'videos', video_tar)
         video_txt_full = os.path.join(video_dir_full, 'list.txt')
 
-        if not os.path.exists(video_dir_full):
+        if not os.path.isdir(video_dir_full):
             os.makedirs(video_dir_full)
 
         print_debug('Downloading video {} to {}'.format(video_stem, video_file_full))
@@ -85,7 +91,7 @@ if __name__ == '__main__':
         splitter.run()
 
         print_debug('Creating archive of frames as {}'.format(video_tar_full))
-        make_archive(splitter.frame_paths_full, video_tar_full)
+        make_archive(splitter.file_list, video_tar_full)
 
     else:
         parser.print_help()
@@ -94,50 +100,67 @@ if __name__ == '__main__':
     if not video_tar_full or not video_txt_full:
         sys.exit('Something went wrong. video_tar_full is None')
 
-    for sbucket in xrange(100):
-        # Find an s3 output that doesn't already exist.
-        try:
-            arguments = [
-                '--verbose',
-                '--file={}'.format(cascade_full),
-                '--jobconf=job.settings.video_dir=video_dir',
-                '--jobconf=job.settings.cascade={}'.format(cascade_xml),
-                '--jobconf=job.settings.colorferet=colorferet',
-                '--archive=resources/colorferet.tar.gz#colorferet',
-                '--archive={}#video_dir'.format(video_tar_full),
-                video_txt_full
-            ]
-            if run_type == 'local':
-                out_path = os.path.join('output', 'result_{}'.format(sbucket))
-                if os.path.isdir(out_path):
-                    continue
-                arguments.extend([
-                    '-rlocal',
-                    '--output-dir={}'.format(out_path)
-                ])
-            elif run_type == 'emr':
-                out_path = 's3://facedata/out2/trash_{}'.format(sbucket)
-                arguments.extend([
-                    '-remr',
-                    '--output-dir={}'.format(out_path)
-                ])
+    try:
+        arguments = [
+            '--file={}'.format(cascade_cpu_full),
+            '--file={}'.format(cascade_gpu_full),
+            '--jobconf=job.settings.video_dir=video_dir',
+            '--jobconf=job.settings.cascade_cpu={}'.format(cascade_cpu),
+            '--jobconf=job.settings.cascade_gpu={}'.format(cascade_gpu),
+            '--jobconf=job.settings.colorferet=colorferet',
+            '--archive=resources/colorferet.tar.gz#colorferet',
+            '--archive={}#video_dir'.format(video_tar_full),
+            video_txt_full
+        ]
+        if verbose:
+            arguments.extend(['--verbose'])
+        if run_type == 'local':
+            dir_num = 0
+	    print 'os.path.isdir(', out_dir, '):', os.path.isdir(out_dir)
+            if not os.path.isdir(out_dir):
+                os.makedirs(out_dir)
             else:
-                sys.exit('Unrecognized run type: {}'.format(run_type))
-            word_count = MRFaceTask(args=arguments)
-            word_count.set_up_logging(verbose=True, stream=sys.stdout)
-            with word_count.make_runner() as runner:
-                runner.run()
-                for line in runner.stream_output():
-                    key, value = word_count.parse_output_line(line)
-                    klen = len(key)
-                    if klen > max_wlen:
-                        max_wlen = klen
-                    results.append((key, value))
-            break
-        except IOError, excp:
-            if 'Output path' in excp.message and 'already exists' in excp.message:
-                continue
-            raise
+                subdirs = next(os.walk(out_dir))[1]
+                if len(subdirs) > 0:
+		    nums = [int(i.split('_')[1]) for i in subdirs]
+                    nums.sort()
+                    dir_num = nums[-1] + 1
+            out_path = os.path.join(out_dir, '{}_{}'.format(out_subdir, dir_num))
+            if not os.path.isdir(out_path):
+                os.makedirs(out_path)
+            arguments.extend([
+                '-rlocal',
+                '--output-dir={}'.format(out_path)
+            ])
+        elif run_type == 'emr':
+            bucket_dir = 'facedata'
+            bucket_obj = boto3.resource('s3').Bucket(bucket_dir)
+            existing_out_dirs = list(bucket_obj.objects.filter(Prefix=out_dir+'/'))
+            dir_num = 0
+            if len(existing_out_dirs) > 0:
+                dir_num = int(existing_out_dirs[-1].key.split('/')[1].split('_')[1]) + 1
+        
+            out_path = 's3://{}/{}/{}_{}'.format(bucket_dir, out_dir, out_subdir, dir_num)
+            print 'OUTTY', out_path
+            arguments.extend([
+                '-remr',
+                '--output-dir={}'.format(out_path)
+            ])
+        else:
+            sys.exit('Unrecognized run type: {}'.format(run_type))
+        word_count = MRFaceTask(args=arguments)
+        word_count.set_up_logging(verbose=True, stream=sys.stdout)
+        with word_count.make_runner() as runner:
+            runner.run()
+            for line in runner.stream_output():
+                key, value = word_count.parse_output_line(line)
+                klen = len(key)
+                if klen > max_wlen:
+                    max_wlen = klen
+                results.append((key, value))
+    except IOError, excp:
+        print 'Exception message:', excp.message
+        raise
 
     pad = '{:' + '{}'.format(max_wlen) + '}'
     fmat = '{}:\t{}'.format(pad, '{}')
