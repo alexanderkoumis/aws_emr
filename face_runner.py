@@ -47,7 +47,7 @@ def get_youtube_filename(youtube_url):
 
 if __name__ == '__main__':
 
-    config = AwsConfiguration()
+    config = AwsConfiguration('gpu')
     run_type = 'local' # Currently supports local and emr
     max_wlen = 8
     out_path = None
