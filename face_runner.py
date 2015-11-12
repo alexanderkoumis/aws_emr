@@ -47,7 +47,6 @@ def get_youtube_filename(youtube_url):
 
 if __name__ == '__main__':
 
-    config = AwsConfiguration('gpu')
     run_type = 'local' # Currently supports local and emr
     max_wlen = 8
     out_path = None
@@ -66,7 +65,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--run', help='Run type (same as MRJob) (defaults to local)')
     parser.add_argument('--youtube', help='Process YouTube video (requires youtube-dl)')
+    parser.add_argument('--gpu', help='Enable GPU on AWS (Warning: will cost more)', action='store_true', dest='gpu')
     args = parser.parse_args()
+
+    config = AwsConfiguration('gpu' if args.gpu else 'cpu')
 
     if args.run:
         run_type = args.run

@@ -30,11 +30,13 @@ echo "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$CUDA_DIR/lib64" >> ~/.bashrc
 #### OPENCV
 
 OPENCV_DIR=$PWD/opencv
+OPENCV_CONTRIB_DIR=$PWD/opencv_contrib
 git clone https://github.com/Itseez/opencv $OPENCV_DIR
+git clone https://github.com/Itseez/opencv_contrib $OPENCV_CONTRIB_DIR
 mkdir $OPENCV_DIR/build && cd $OPENCV_DIR/build
-cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF -D CPACK_SOURCE_TGZ=ON ..
+cmake -D WITH_1394=OFF -D BUILD_PERF_TESTS=OFF -D BUILD_TESTS=OFF -D BUILD_WITH_DEBUG_INFO=OFF -D CPACK_SOURCE_TGZ=ON -D OPENCV_EXTRA_MODULES_PATH=$OPENCV_CONTRIB_DIR/modules ..
 make -j$(nproc)
-
+make -j$(nproc) package
 echo "export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python2.7/dist-packages/" >> ~/.bashrc
 
 

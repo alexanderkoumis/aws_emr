@@ -53,9 +53,16 @@ class MRFaceTask(MRJob):
 
         self.video_dir = jobconf_from_env('job.settings.video_dir')
         self.output_dir = os.path.join(jobconf_from_env('mapreduce.task.output.dir'), 'faces')
-        self.recognizer = cv2.createLBPHFaceRecognizer()
-        # self.recognizer = cv2.createFisherFaceRecognizer()
-        # self.recognizer = cv2.createEigenFaceRecognizer()
+        self.opencv_version = int(cv2.__version__.split('.')[0])
+
+        if self.opencv_version == 2:
+            self.recognizer = cv2.createLBPHFaceRecognizer()
+            # self.recognizer = cv2.createFisherFaceRecognizer()
+            # self.recognizer = cv2.createEigenFaceRecognizer()
+        elif self.opencv_version == 3:
+            self.recognizer = cv2.face.createLBPHFaceRecognizer()
+            # self.recognizer = cv2.face.createFisherFaceRecognizer()
+            # self.recognizer = cv2.face.createEigenFaceRecognizer()
 
         if cv2gpu.is_cuda_compatible():
             sys.stderr.write('Using GPU CascadeClassifier')

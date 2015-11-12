@@ -66,18 +66,23 @@ class AwsConfiguration(Configuration):
             'runners': {
                 'emr': {
                     'bootstrap': [
-                        'sudo yum -y update && sudo yum -y install cmake && sudo yum -y groupinstall "Development tools"',
-                        'sudo pip -v install numpy',
-                        'mkdir -p /home/hadoop/nvidia',
-                        'wget http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/cuda_7.5.18_linux.run -P /home/hadoop/nvidia',
-                        'wget http://us.download.nvidia.com/XFree86/Linux-x86_64/352.55/NVIDIA-Linux-x86_64-352.55.run -P /home/hadoop/nvidia',
-                        'chmod +x /home/hadoop/nvidia/*.run',
-                        '/home/hadoop/nvidia/cuda_7.5.18_linux.run -extract=/home/hadoop/nvidia',
-                        'sudo /home/hadoop/nvidia/NVIDIA-Linux-x86_64-352.55.run -s -N --no-kernel-module',
-                        'sudo /home/hadoop/nvidia/cuda-linux64-rel-7.5.18-19867135.run -noprompt',
-                        'rm -rf /home/hadoop/nvidia',
-                        'wget http://facedata.s3.amazonaws.com/OpenCV-3.0.0-AmazonLinux2015.03-GPU-x86_64.tar.gz && sudo tar -xzvf ./OpenCV-3.0.0-AmazonLinux2015.03-GPU-x86_64.tar.gz -C /usr/local',
-                        'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig && wget http://facedata.s3.amazonaws.com/opencv-gpu-py.tar.gz && sudo -E pip install ./opencv-gpu-py.tar.gz'
+                        'BOOTSTRAP_DIR=/mnt/bootstrap',
+                        'OPENCV=OpenCV-3.0.0-AmazonLinux2015.03-GPU-x86_64.tar.gz',
+                        'OPENCV_GPU=opencv-gpu-py.tar.gz',
+                        'CUDA_PKG=cuda_7.5.18_linux.run',
+                        'CUDA_BIN=cuda-linux64-rel-7.5.18-19867135.run',
+                        'NVIDIA_BIN=NVIDIA-Linux-x86_64-352.55.run',
+                        'BUCKET_URL=http://facedata.s3.amazonaws.com',
+                        'sudo yum -y update',
+                        'sudo pip -v install --upgrade numpy',
+                        'mkdir -p $BOOTSTRAP_DIR/nvidia',
+                        'wget $http://us.download.nvidia.com/XFree86/Linux-x86_64/352.55/$NVIDIA_BIN -P $BOOTSTRAP_DIR/nvidia && chmod +x $$BOOTSTRAP_DIR/nvidia/$NVIDIA_BIN',
+                        'sudo $BOOTSTRAP_DIR/nvidia/$NVIDIA_BIN -s -N --no-kernel-module && rm $BOOTSTRAP_DIR/nvidia/$NVIDIA_BIN',
+                        'wget $http://developer.download.nvidia.com/compute/cuda/7.5/Prod/local_installers/$CUDA_PKG -P $BOOTSTRAP_DIR/nvidia && chmod +x $BOOTSTRAP_DIR/nvidia/$CUDA_PKG',
+                        '$BOOTSTRAP_DIR/nvidia/$CUDA_PKG -extract=$BOOTSTRAP_DIR/nvidia && rm $BOOTSTRAP_DIR/nvidia/$CUDA_PKG',
+                        'sudo $BOOTSTRAP_DIR/nvidia/$CUDA_BIN -noprompt && rm $BOOTSTRAP_DIR/nvidia/$CUDA_BIN',
+                        'wget $BUCKET_URL/$OPENCV && sudo tar -xzvf ./$OPENCV -C /usr/local',
+                        'export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig && wget $BUCKET_URL/$OPENCV_GPU && sudo -E pip install ./$OPENCV_GPU'
                     ],
                     'setup': [
                         'export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:/usr/local/cuda/lib',
