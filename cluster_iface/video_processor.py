@@ -67,7 +67,7 @@ class SplitProcessor(_VideoProcessor):
 
     file_list = []
     list_path = ""
-    verbose = False
+    verbose = True
 
     def __init__(self, video_path, out_dir, out_ext):
         super(SplitProcessor, self).__init__(video_path)
@@ -88,12 +88,12 @@ class SplitProcessor(_VideoProcessor):
         if self.first:
             self.first = False
             filename_last = _filename(num_total)
+            for frame_num in range(num_curr, num_total):
+                filename_curr = _filename(frame_num)
+                self.file_list.append(filename_curr)
             if os.path.isfile(filename_last):
                 self.kill = True
                 print 'All frames already processed'
-                for frame_num in range(num_curr, num_total):
-                    filename_curr = _filename(frame_num)
-                    self.file_list.append(filename_curr)
                 return
 
         filename_curr = _filename(num_curr)

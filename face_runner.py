@@ -21,7 +21,7 @@ from cluster_iface.video_processor import SplitProcessor
 from jobs.face_job import MRFaceTask
 
 
-verbose = True
+verbose = False
 
 def print_debug(message):
     if verbose:
@@ -45,7 +45,7 @@ def get_youtube_filename(youtube_url):
             raise
     return ''.join(c for c in filename if c.isalnum() or c == '.')
 
-if __name__ == '__main__':
+def main():
 
     run_type = 'local' # Currently supports local and emr
     max_wlen = 8
@@ -93,6 +93,7 @@ if __name__ == '__main__':
         splitter.run()
 
         print_debug('Creating archive of frames as {}'.format(video_tar_full))
+        print_debug('file_list: {}'.format(splitter.file_list))
         make_archive(splitter.file_list, video_tar_full)
 
     else:
@@ -131,7 +132,7 @@ if __name__ == '__main__':
             if not os.path.isdir(out_path):
                 os.makedirs(out_path)
             arguments.extend([
-                '-rlocal',
+                '-rinline',
                 '--output-dir={}'.format(out_path)
             ])
         elif run_type == 'emr':
@@ -143,7 +144,6 @@ if __name__ == '__main__':
                 dir_num = int(existing_out_dirs[-1].key.split('/')[1].split('_')[1]) + 1
         
             out_path = 's3://{}/{}/{}_{}'.format(bucket_dir, out_dir, out_subdir, dir_num)
-            print 'OUTTY', out_path
             arguments.extend([
                 '-remr',
                 '--output-dir={}'.format(out_path)
@@ -171,3 +171,8 @@ if __name__ == '__main__':
     print fmat.format('--WORD--', '--COUNT--')
     for key, value in results:
         print '  {}'.format(fmat.format(key, value))
+
+
+
+if __name__ == '__main__':
+    main()
